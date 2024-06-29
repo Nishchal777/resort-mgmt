@@ -70,76 +70,92 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 
 	}
-	function save_room(){
+	function save_room() {
 		$_POST['description'] = htmlentities($_POST['description']);
 		extract($_POST);
+	
+		// Initialize data string for SQL query
 		$data = "";
-		foreach($_POST as $k =>$v){
-			if(!in_array($k,array('id'))){
-				if(!is_numeric($v))
+		foreach ($_POST as $k => $v) {
+			if (!in_array($k, array('id'))) {
+				if (!is_numeric($v)) {
 					$v = $this->conn->real_escape_string($v);
-				if(!empty($data)) $data .=",";
+				}
+				if (!empty($data)) {
+					$data .= ",";
+				}
 				$data .= " `{$k}`='{$v}' ";
 			}
 		}
-		if(empty($id)){
-			$sql = "INSERT INTO `room_list` set {$data} ";
-		}else{
-			$sql = "UPDATE `room_list` set {$data} where id = '{$id}' ";
+	
+		// Determine SQL query based on presence of ID
+		if (empty($id)) {
+			$sql = "INSERT INTO `room_list` SET {$data}";
+		} else {
+			$sql = "UPDATE `room_list` SET {$data} WHERE `id`='{$id}'";
 		}
+	
+		// Execute SQL query
 		$save = $this->conn->query($sql);
-		if($save){
+	
+		// Initialize response array
+		$resp = array();
+	
+		if ($save) {
+			// Retrieve inserted/updated room ID
 			$rid = !empty($id) ? $id : $this->conn->insert_id;
 			$resp['id'] = $rid;
 			$resp['status'] = 'success';
-			if(empty($id))
-				$resp['msg'] = "Room has successfully added.";
-			else
-				$resp['msg'] = "Room details has been updated successfully.";
-			if(isset($_FILES['img']) && $_FILES['img']['tmp_name'] != ''){
-				if(!is_dir(base_app.'uploads/rooms'))
-				mkdir(base_app.'uploads/rooms');
-
-				$fname = 'uploads/rooms/'.$rid.'.png';
-				$dir_path =base_app. $fname;
+	
+			// Set success message based on operation (insert or update)
+			if (empty($id)) {
+				$resp['msg'] = "Room has been successfully added.";
+			} else {
+				$resp['msg'] = "Room details have been updated successfully.";
+			}
+	
+			// Handle image upload if a file is provided
+			if (isset($_FILES['img']) && $_FILES['img']['tmp_name'] != '') {
+				// Ensure the uploads directory exists or create it
+				if (!is_dir(base_app . 'uploads/rooms')) {
+					mkdir(base_app . 'uploads/rooms', 0777, true);
+				}
+	
+				$fname = 'uploads/rooms/' . $rid . '.png';
+				$dir_path = base_app . $fname;
 				$upload = $_FILES['img']['tmp_name'];
 				$type = mime_content_type($upload);
-				$allowed = array('image/png','image/jpeg');
-				if(!in_array($type,$allowed)){
-					$resp['msg'].=" But Image failed to upload due to invalid file type.";
-				}else{
-					$new_height = 400; 
-					$new_width = 600; 
-			
-					list($width, $height) = getimagesize($upload);
-					$t_image = imagecreatetruecolor($new_width, $new_height);
-					imagealphablending( $t_image, false );
-					imagesavealpha( $t_image, true );
-					$gdImg = ($type == 'image/png')? imagecreatefrompng($upload) : imagecreatefromjpeg($upload);
-					imagecopyresampled($t_image, $gdImg, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-					if($gdImg){
-							if(is_file($dir_path))
-							unlink($dir_path);
-							$uploaded_img = imagepng($t_image,$dir_path);
-							imagedestroy($gdImg);
-							imagedestroy($t_image);
-					}else{
-					$resp['msg'].=" But Image failed to upload due to unkown reason.";
+				$allowed = array('image/png', 'image/jpeg');
+	
+				// Validate file type
+				if (!in_array($type, $allowed)) {
+					$resp['msg'] .= " But Image failed to upload due to invalid file type.";
+				} else {
+					// Move uploaded file to destination
+					if (move_uploaded_file($upload, $dir_path)) {
+						// Update database with image path
+						$this->conn->query("UPDATE `room_list` SET `image_path`='{$fname}?v=" . time() . "' WHERE `id`='{$rid}'");
+					} else {
+						$resp['msg'] .= " But Image failed to upload.";
 					}
 				}
-				if(isset($uploaded_img)){
-					$this->conn->query("UPDATE room_list set `image_path` = CONCAT('{$fname}','?v=',unix_timestamp(CURRENT_TIMESTAMP)) where id = '{$rid}' ");
-				}
 			}
-		}else{
+		} else {
+			// If query execution fails
 			$resp['status'] = 'failed';
-			$resp['msg'] = "An error occured.";
-			$resp['err'] = $this->conn->error."[{$sql}]";
+			$resp['msg'] = "An error occurred.";
+			$resp['err'] = $this->conn->error . "[{$sql}]";
 		}
-		if($resp['status'] =='success')
-			$this->settings->set_flashdata('success',$resp['msg']);
+	
+		// Set flash message for success
+		if ($resp['status'] == 'success') {
+			$this->settings->set_flashdata('success', $resp['msg']);
+		}
+	
+		// Return JSON-encoded response
 		return json_encode($resp);
 	}
+	
 	function delete_room(){
 		extract($_POST);
 		$del = $this->conn->query("UPDATE `room_list` set delete_flag = 1 where id = '{$id}'");
@@ -284,76 +300,73 @@ Class Master extends DBConnection {
 		}
 		return json_encode($resp);
 	}
-	function save_activity(){
+	function save_activity() {
 		$_POST['description'] = htmlentities($_POST['description']);
 		extract($_POST);
 		$data = "";
-		foreach($_POST as $k =>$v){
-			if(!in_array($k,array('id'))){
-				if(!is_numeric($v))
+		foreach ($_POST as $k => $v) {
+			if (!in_array($k, array('id'))) {
+				if (!is_numeric($v)) {
 					$v = $this->conn->real_escape_string($v);
-				if(!empty($data)) $data .=",";
+				}
+				if (!empty($data)) {
+					$data .= ",";
+				}
 				$data .= " `{$k}`='{$v}' ";
 			}
 		}
-		if(empty($id)){
-			$sql = "INSERT INTO `activity_list` set {$data} ";
-		}else{
-			$sql = "UPDATE `activity_list` set {$data} where id = '{$id}' ";
+		if (empty($id)) {
+			$sql = "INSERT INTO `activity_list` SET {$data}";
+		} else {
+			$sql = "UPDATE `activity_list` SET {$data} WHERE id = '{$id}'";
 		}
 		$save = $this->conn->query($sql);
-		if($save){
+	
+		if ($save) {
 			$rid = !empty($id) ? $id : $this->conn->insert_id;
 			$resp['id'] = $rid;
 			$resp['status'] = 'success';
-			if(empty($id))
-				$resp['msg'] = "Activity has successfully added.";
-			else
-				$resp['msg'] = "Activity details has been updated successfully.";
-			if(isset($_FILES['img']) && $_FILES['img']['tmp_name'] != ''){
-				if(!is_dir(base_app.'uploads/activitys'))
-				mkdir(base_app.'uploads/activitys');
-
-				$fname = 'uploads/activitys/'.$rid.'.png';
-				$dir_path =base_app. $fname;
+			if (empty($id)) {
+				$resp['msg'] = "Activity has successfully been added.";
+			} else {
+				$resp['msg'] = "Activity details have been updated successfully.";
+			}
+			
+			if (isset($_FILES['img']) && $_FILES['img']['tmp_name'] != '') {
+				if (!is_dir(base_app . 'uploads/activities')) {
+					mkdir(base_app . 'uploads/activities', 0777, true);
+				}
+	
+				$fname = 'uploads/activities/' . $rid . '.png';
+				$dir_path = base_app . $fname;
 				$upload = $_FILES['img']['tmp_name'];
 				$type = mime_content_type($upload);
-				$allowed = array('image/png','image/jpeg');
-				if(!in_array($type,$allowed)){
-					$resp['msg'].=" But Image failed to upload due to invalid file type.";
-				}else{
-					$new_height = 400; 
-					$new_width = 600; 
-			
-					list($width, $height) = getimagesize($upload);
-					$t_image = imagecreatetruecolor($new_width, $new_height);
-					imagealphablending( $t_image, false );
-					imagesavealpha( $t_image, true );
-					$gdImg = ($type == 'image/png')? imagecreatefrompng($upload) : imagecreatefromjpeg($upload);
-					imagecopyresampled($t_image, $gdImg, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-					if($gdImg){
-							if(is_file($dir_path))
-							unlink($dir_path);
-							$uploaded_img = imagepng($t_image,$dir_path);
-							imagedestroy($gdImg);
-							imagedestroy($t_image);
-					}else{
-					$resp['msg'].=" But Image failed to upload due to unkown reason.";
+				$allowed = array('image/png', 'image/jpeg', 'image/jpg');
+	
+				if (!in_array($type, $allowed)) {
+					$resp['msg'] .= " But image failed to upload due to invalid file type.";
+				} else {
+					// Move uploaded file to destination
+					if (move_uploaded_file($upload, $dir_path)) {
+						// Update database with image path
+						$this->conn->query("UPDATE activity_list SET `image_path` = '{$fname}' WHERE id = '{$rid}'");
+					} else {
+						$resp['msg'] .= " But image failed to upload due to an unknown reason.";
 					}
 				}
-				if(isset($uploaded_img)){
-					$this->conn->query("UPDATE activity_list set `image_path` = CONCAT('{$fname}','?v=',unix_timestamp(CURRENT_TIMESTAMP)) where id = '{$rid}' ");
-				}
 			}
-		}else{
+		} else {
 			$resp['status'] = 'failed';
-			$resp['msg'] = "An error occured.";
-			$resp['err'] = $this->conn->error."[{$sql}]";
+			$resp['msg'] = "An error occurred.";
+			$resp['err'] = $this->conn->error . "[{$sql}]";
 		}
-		if($resp['status'] =='success')
-			$this->settings->set_flashdata('success',$resp['msg']);
+	
+		if ($resp['status'] == 'success') {
+			$this->settings->set_flashdata('success', $resp['msg']);
+		}
 		return json_encode($resp);
 	}
+	
 	function delete_activity(){
 		extract($_POST);
 		$del = $this->conn->query("UPDATE `activity_list` set delete_flag = 1 where id = '{$id}'");

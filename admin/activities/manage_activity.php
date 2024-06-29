@@ -19,7 +19,7 @@ if(isset($_GET['id'])){
 	}
 </style>
 <div class="container-fluid">
-    <form action="" id="activity-form">
+    <form action="" id="activity-form" enctype="multipart/form-data">
         <input type="hidden" name="id" value="<?php echo isset($id) ? $id : '' ?>">
         <div class="row">
             <div class="col-md-6">
@@ -105,6 +105,7 @@ if(isset($_GET['id'])){
                 method: 'POST',
                 type: 'POST',
                 dataType: 'json',
+                
 				error:err=>{
 					console.log(err)
 					alert_toast("An error occured",'error');
